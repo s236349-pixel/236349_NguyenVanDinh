@@ -1,267 +1,139 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 
 function App() {
-  const [students, setStudents] = useState([]);
-  const [studentId, setStudentId] = useState('');
+  const [foods, setFoods] = useState([]);
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [editingStudentId, setEditingStudentId] = useState(null);
+  const [category, setCategory] = useState('');
+  const [price, setPrice] = useState('');
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
 
-  // Đọc phản hồi từ Backend, kể cả khi Backend trả về HTML hoặc JSON lỗi
-  const readResponse = async (response) => {
-    const text = await response.text();
-    let data = null;
-
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch {
-      data = null;
-    }
-
-    if (!response.ok) {
-      const message =
-        data?.message ||
-        data?.error ||
-        text?.slice(0, 200) ||
-        `HTTP ${response.status}`;
-
-      throw new Error(`Lỗi ${response.status}: ${message}`);
-    }
-
-    if (text && data === null) {
-      throw new Error('Backend không trả về JSON hợp lệ.');
-    }
-
-    return data;
-  };
-
-  // 1. Lấy danh sách sinh viên (Dùng đường dẫn tương đối /api/students)
-  const fetchStudents = useCallback(async () => {
+  // Lấy danh sách món ăn từ Backend
+  const fetchFoods = async () => {
     setLoading(true);
-    setError('');
-
     try {
-      const response = await fetch('/api/students');
-      const data = await readResponse(response);
-
-      if (!Array.isArray(data)) {
-        throw new Error('API danh sách sinh viên không trả về mảng dữ liệu.');
+      const response = await fetch('/api/foods');
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setFoods(data);
       }
-
-      setStudents(data);
     } catch (err) {
       console.error('Lỗi tải danh sách:', err);
-      setError(
-        `${err.message}. Vui lòng kiểm tra Backend và kết nối mạng.`
-      );
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    fetchStudents();
-  }, [fetchStudents]);
+    fetchFoods();
+  }, []);
 
-  // 2. Xóa trắng biểu mẫu
-  const resetForm = () => {
-    setStudentId('');
-    setName('');
-    setEmail('');
-    setEditingStudentId(null);
-  };
-
-  // 3. Thêm mới hoặc cập nhật sinh viên
+  // Thêm món ăn mới
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const cleanStudentId = studentId.trim();
-    const cleanName = name.trim();
-    const cleanEmail = email.trim();
-
-    if (!cleanStudentId || !cleanName || !cleanEmail) {
-      alert('Vui lòng điền đầy đủ MSSV, họ tên và email!');
-      return;
-    }
-
-    setSaving(true);
-
     try {
-      const isEditing = Boolean(editingStudentId);
-      const url = isEditing
-        ? `/api/students/${editingStudentId}`
-        : '/api/students';
-
-      const response = await fetch(url, {
-        method: isEditing ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await fetch('/api/foods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentId: cleanStudentId,
-          name: cleanName,
-          email: cleanEmail,
+          foodId: 'F' + Date.now(),
+          name,
+          category,
+          price: Number(price),
         }),
       });
-
-      await readResponse(response);
-
-      alert(
-        isEditing
-          ? 'Cập nhật sinh viên thành công!'
-          : 'Thêm sinh viên thành công!'
-      );
-
-      resetForm();
-      await fetchStudents();
+      if (response.ok) {
+        setName('');
+        setCategory('');
+        setPrice('');
+        fetchFoods();
+        alert('Thêm món ăn thành công!');
+      }
     } catch (err) {
-      console.error('Lỗi lưu sinh viên:', err);
-      alert(`Không thể lưu sinh viên: ${err.message}`);
-    } finally {
-      setSaving(false);
+      console.error('Lỗi thêm món:', err);
     }
   };
 
-  // 4. Chọn sinh viên để sửa
-  const handleEdit = (student) => {
-    setEditingStudentId(student._id);
-    setStudentId(student.studentId || '');
-    setName(student.name || '');
-    setEmail(student.email || '');
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // 5. Xóa sinh viên
+  // Xóa món ăn
   const handleDelete = async (id) => {
-    const confirmed = window.confirm(
-      'Bạn có chắc chắn muốn xóa sinh viên này không?'
-    );
-
-    if (!confirmed) return;
-
+    if (!window.confirm('Bạn có chắc muốn xóa món này?')) return;
     try {
-      const response = await fetch(`/api/students/${id}`, {
-        method: 'DELETE',
-      });
-
-      await readResponse(response);
-
-      alert('Xóa sinh viên thành công!');
-      await fetchStudents();
+      const response = await fetch(`/api/foods/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        fetchFoods();
+      }
     } catch (err) {
-      console.error('Lỗi xóa sinh viên:', err);
-      alert(`Không thể xóa sinh viên: ${err.message}`);
+      console.error('Lỗi xóa món:', err);
     }
   };
 
   return (
-    <main className="container">
-      <h1>Quản lý Sinh viên MERN Stack - v2.0</h1>
+    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', fontFamily: 'Arial' }}>
+      <h1>Quản lý Món ăn MERN Stack</h1>
 
-      <form className="form" onSubmit={handleSubmit}>
+      {/* Form thêm món */}
+      <form onSubmit={handleSubmit} style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <input
           type="text"
-          placeholder="MSSV"
-          value={studentId}
-          onChange={(e) => setStudentId(e.target.value)}
-          required
-        />
-
-        <input
-          type="text"
-          placeholder="Họ tên"
+          placeholder="Tên món ăn"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
+          style={{ padding: '8px', flex: 1 }}
         />
-
         <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          placeholder="Loại món"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
           required
+          style={{ padding: '8px', flex: 1 }}
         />
-
-        <button type="submit" disabled={saving}>
-          {saving
-            ? 'Đang lưu...'
-            : editingStudentId
-              ? 'Cập nhật sinh viên'
-              : 'Thêm sinh viên'}
+        <input
+          type="number"
+          placeholder="Giá"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          required
+          style={{ padding: '8px', width: '100px' }}
+        />
+        <button type="submit" style={{ padding: '8px 16px', background: '#007bff', color: '#fff', border: 'none', cursor: 'pointer' }}>
+          Thêm
         </button>
-
-        {editingStudentId && (
-          <button type="button" onClick={resetForm}>
-            Hủy sửa
-          </button>
-        )}
       </form>
 
-      <h2>Danh sách sinh viên</h2>
+      <h2>Danh sách món ăn</h2>
+      {loading ? <p>Đang tải...</p> : null}
 
-      {error && (
-        <div role="alert" className="error-message">
-          {error}
-          <button type="button" onClick={fetchStudents}>
-            Thử lại
-          </button>
-        </div>
-      )}
-
-      {loading && <p>Đang tải danh sách sinh viên...</p>}
-
-      <table>
+      <table border="1" cellPadding="8" style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
-          <tr>
-            <th>MSSV</th>
-            <th>Họ tên</th>
-            <th>Email</th>
+          <tr style={{ background: '#f1f1f1' }}>
+            <th>Tên món</th>
+            <th>Loại</th>
+            <th>Giá</th>
             <th>Hành động</th>
           </tr>
         </thead>
-
         <tbody>
-          {!loading && students.length === 0 ? (
+          {foods.length === 0 ? (
             <tr>
-              <td colSpan="4">
-                {error
-                  ? 'Không tải được dữ liệu sinh viên.'
-                  : 'Chưa có sinh viên nào.'}
-              </td>
+              <td colSpan="4" style={{ textAlign: 'center' }}>Chưa có món ăn nào.</td>
             </tr>
           ) : (
-            students.map((student) => (
-              <tr key={student._id}>
-                <td>{student.studentId}</td>
-                <td>{student.name}</td>
-                <td>{student.email}</td>
+            foods.map((food) => (
+              <tr key={food._id}>
+                <td>{food.name}</td>
+                <td>{food.category}</td>
+                <td>{food.price}</td>
                 <td>
-                  <button
-                    type="button"
-                    onClick={() => handleEdit(student)}
-                  >
-                    Sửa
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(student._id)}
-                  >
-                    Xóa
-                  </button>
+                  <button onClick={() => handleDelete(food._id)} style={{ color: 'red', cursor: 'pointer' }}>Xóa</button>
                 </td>
               </tr>
             ))
           )}
         </tbody>
       </table>
-    </main>
+    </div>
   );
 }
 
