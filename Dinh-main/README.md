@@ -22,7 +22,6 @@ Dinh-main/
 ├── nginx.conf
 ├── package.json
 └── package-lock.json
-```
 
 ## 4. Cài đặt và chạy chương trình
 
